@@ -1,0 +1,74 @@
+/* General container to center everything */
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Full viewport height */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Dropdown container */
+.dropdown-container {
+  margin-bottom: 20px; /* Space between dropdown and chart */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 90%;  /* Make the dropdown container 90% of the width */
+  max-width: 400px; /* Limit the maximum width */
+}
+
+/* Label styling */
+.dropdown-container label {
+  font-size: 18px;
+  margin-bottom: 10px; /* Space between label and dropdown */
+}
+
+/* Styling for the dropdown */
+#sensor-select {
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 350px; /* Make dropdown more responsive */
+}
+
+/* Chart container */
+.chart-container {
+  width: 90%;  /* Make the chart container 90% of the width */
+  height: 80vh; /* 80% of the viewport height */
+  margin-top: 30px; /* Space between dropdown and chart */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Make sure the chart fits within the container */
+.chart-container canvas {
+  width: 100% !important;  /* Ensures it fills the container width */
+  height: 100% !important; /* Ensures it fills the container height */
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.page-button {
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  background-color: white;
+  cursor: pointer;
+}
+
+.page-button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
