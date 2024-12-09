@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import '../style/RealTimeData.css';
 
@@ -11,7 +11,7 @@ const socket = io('http://localhost:5000', {
     reconnect: true,
 });
 
-ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend, zoomPlugin);
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, BarElement, Title, Tooltip, Legend, zoomPlugin);
 
 const RealTimeData = () => {
     const [sensorData, setSensorData] = useState([]);
@@ -22,6 +22,7 @@ const RealTimeData = () => {
         labels: [],
         datasets: [],
     });
+    const [chartType, setChartType] = useState('line');
 
     // Fetch initial sensor data from the backend
     useEffect(() => {
@@ -95,11 +96,13 @@ const RealTimeData = () => {
         const allLabels = Object.keys(groupedByTimestamp);
         const parameters = filteredData[0]?.params.map((param) => param.name) || [];
         const datasets = parameters.map((paramName) => {
+            const units = filteredData[0]?.params.find((param) => param.name === paramName)?.units || '';
             const paramData = allLabels.map((timestamp) => groupedByTimestamp[timestamp][paramName] || null);
             return {
-                label: `${paramName} (${selectedSensor})`,
+                label: `${paramName} (${units}, ${selectedSensor})`, // Add units to the label
                 data: paramData,
                 borderColor: `hsl(${Math.random() * 360}, 70%, 50%)`,
+                backgroundColor: `hsl(${Math.random() * 360}, 70%, 70%)`, // For bar chart
                 fill: false,
                 pointRadius: 2,
                 borderWidth: 2,
@@ -130,8 +133,33 @@ const RealTimeData = () => {
         (sensorData.filter((item) => item.sensor_id === selectedSensor) || []).length / itemsPerPage
     );
 
+    // Export Chart as Image
+    const exportChartAsImage = () => {
+        const chartInstance = ChartJS.getChart('chartCanvasId'); // Replace with your chart canvas ID
+        const url = chartInstance.toBase64Image();
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'chart.png';
+        link.click();
+    };
+
+    // Export Data as JSON
+    const exportDataAsJson = () => {
+        const dataToExport = sensorData.filter((item) => item.sensor_id === selectedSensor);
+        const jsonBlob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(jsonBlob);
+        link.download = 'sensor_data.json';
+        link.click();
+    };
+
+    // Toggle chart type
+    const toggleChartType = () => {
+        setChartType((prevType) => (prevType === 'line' ? 'bar' : 'line'));
+    };
+
     return (
-        <div className="container">
+        <div className="container" style={{ height: '100vh', overflow: 'hidden' }}>
             {/* Label and Dropdown for selecting sensor */}
             <div className="dropdown-container">
                 <label htmlFor="sensor-select">Choose Sensor</label>
@@ -146,42 +174,85 @@ const RealTimeData = () => {
             </div>
 
             {/* Chart */}
-            <div className="chart-container">
+            <div className="chart-container" style={{ height: '70vh' }}>
                 {selectedSensor && sensorData.length ? (
-                    <Line
-                        data={chartData}
-                        options={{
-                            plugins: {
-                                zoom: {
+                    chartType === 'line' ? (
+                        <Line
+                            id="chartCanvasId"
+                            data={chartData}
+                            options={{
+                                plugins: {
                                     zoom: {
-                                        wheel: {
-                                            enabled: true,
+                                        zoom: {
+                                            wheel: {
+                                                enabled: true,
+                                            },
+                                            pinch: {
+                                                enabled: true,
+                                            },
+                                            mode: 'xy',
                                         },
-                                        pinch: {
+                                        pan: {
                                             enabled: true,
+                                            mode: 'xy',
                                         },
-                                        mode: 'xy',
                                     },
-                                    pan: {
-                                        enabled: true,
-                                        mode: 'xy',
+                                    tooltip: {
+                                        callbacks: {
+                                            title: (tooltipItems) =>
+                                                `Time: ${tooltipItems[0]?.label || ''}`,
+                                            label: (tooltipItem) =>
+                                                `${tooltipItem.dataset.label}: ${tooltipItem.raw}`,
+                                        },
                                     },
                                 },
-                                tooltip: {
-                                    callbacks: {
-                                        title: (tooltipItems) =>
-                                            `Time: ${tooltipItems[0]?.label || ''}`,
-                                        label: (tooltipItem) =>
-                                            `${tooltipItem.dataset.label}: ${tooltipItem.raw}`,
+                                maintainAspectRatio: false,
+                            }}
+                        />
+                    ) : (
+                        <Bar
+                            id="chartCanvasId"
+                            data={chartData}
+                            options={{
+                                plugins: {
+                                    zoom: {
+                                        zoom: {
+                                            wheel: {
+                                                enabled: true,
+                                            },
+                                            pinch: {
+                                                enabled: true,
+                                            },
+                                            mode: 'xy',
+                                        },
+                                        pan: {
+                                            enabled: true,
+                                            mode: 'xy',
+                                        },
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: (tooltipItems) =>
+                                                `Time: ${tooltipItems[0]?.label || ''}`,
+                                            label: (tooltipItem) =>
+                                                `${tooltipItem.dataset.label}: ${tooltipItem.raw}`,
+                                        },
                                     },
                                 },
-                            },
-                            maintainAspectRatio: false,
-                        }}
-                    />
+                                maintainAspectRatio: false,
+                            }}
+                        />
+                    )
                 ) : (
                     <div>No data available. Please select a sensor.</div>
                 )}
+            </div>
+
+            {/* Export and Toggle Buttons */}
+            <div className="export-buttons">
+                <button className="styled-button" onClick={exportChartAsImage}>Export Chart as Image</button>
+                <button className="styled-button" onClick={exportDataAsJson}>Export Data as JSON</button>
+                <button className="styled-button" onClick={toggleChartType}>Toggle Chart Type</button>
             </div>
 
             {/* Pagination */}

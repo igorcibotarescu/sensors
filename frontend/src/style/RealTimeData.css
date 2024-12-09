@@ -4,7 +4,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100vh; /* Full viewport height */
+  height: 110vh; /* Full viewport height */
   padding: 20px;
   box-sizing: border-box;
 }
@@ -71,4 +71,23 @@
   background-color: #007bff;
   color: white;
   border-color: #007bff;
+}
+
+.export-buttons {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.export-buttons button {
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background-color: #f9f9f9;
+  transition: background-color 0.3s ease;
+}
+
+.export-buttons button:hover {
+  background-color: #e9e9e9;
 }

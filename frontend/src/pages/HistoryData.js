@@ -42,7 +42,7 @@ const chartOptions = (sensor) => ({
 const FormInput = ({ label, value, onChange, type = "text" }) => (
   <div style={{ margin: "0 10px" }}>
     <label>
-      {label}: {" "}
+      {label}:{" "}
       <input
         type={type}
         value={value}
@@ -73,7 +73,8 @@ const HistoryData = () => {
   });
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(0); // Initialize with 0
+
   const pageSize = 10;
 
   useEffect(() => {
@@ -90,14 +91,21 @@ const HistoryData = () => {
   }, []);
 
   const fetchFilteredData = async (page = 1) => {
-    if (!selectedSensor) {
-      setSensorData([]);
-      setTotalPages(1);
+    const { startDate, endDate } = filters;
+
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      setValidationError("Start date must be before or equal to the end date.");
       return;
     }
-  
-    const { startDate, endDate } = filters;
-  
+
+    setValidationError("");
+
+    if (!selectedSensor) {
+      setSensorData([]);
+      setTotalPages(0); // No pages available
+      return;
+    }
+
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -107,23 +115,23 @@ const HistoryData = () => {
         page,
         limit: pageSize,
       });
-  
+
       const response = await getFilteredSensors(params);
-  
+
       if (!response || !response.data || !Array.isArray(response.data)) {
         throw new Error("Invalid response format");
       }
 
-      console.log(response);
-  
       setSensorData(response.data);
-      setTotalPages(Math.ceil(response.total / pageSize));
+      const totalRecords = response.total || 0;
+      setTotalPages(Math.ceil(totalRecords / pageSize)); // Update pages based on records
     } catch (err) {
       console.log("Failed to fetch sensor data. Please try again later.");
+      setTotalPages(0); // Error case, reset pages
     } finally {
       setLoading(false);
     }
-  };  
+  };
 
   useEffect(() => {
     if (!sensorData || sensorData.length === 0) {
@@ -136,21 +144,23 @@ const HistoryData = () => {
       const timestamp = new Date(reading.timestamp).toLocaleString();
       reading.params.forEach((param) => {
         if (!groupedData[param.name]) {
-          groupedData[param.name] = { data: [], timestamps: [] };
+          groupedData[param.name] = { data: [], timestamps: [], unit: param.units || "" };
         }
         groupedData[param.name].data.push(param.value);
         groupedData[param.name].timestamps.push(timestamp);
       });
     });
 
-    const datasets = Object.entries(groupedData).map(([name, { data }], index) => ({
-      label: name,
-      data,
-      borderColor: colors[index % colors.length],
-      backgroundColor: `${colors[index % colors.length]}33`,
-      tension: 0.4,
-      pointRadius: 3,
-    }));
+    const datasets = Object.entries(groupedData).map(
+      ([name, { data, unit }], index) => ({
+        label: `${name} (${unit})`,
+        data,
+        borderColor: colors[index % colors.length],
+        backgroundColor: `${colors[index % colors.length]}33`,
+        tension: 0.4,
+        pointRadius: 3,
+      })
+    );
 
     setChartData({
       labels: groupedData[Object.keys(groupedData)[0]]?.timestamps || [],
@@ -167,15 +177,35 @@ const HistoryData = () => {
     setSensorData([]);
     setChartData(null);
     setValidationError("");
-    setCurrentPage(1); // Reset to the first page
-    setTotalPages(1);  // Reset total pages
+    setCurrentPage(1);
+    setTotalPages(0); // Reset to 0 pages
   };
-  
 
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= totalPages) {
       setCurrentPage(newPage);
       fetchFilteredData(newPage);
+    }
+  };
+
+  const exportAsJSON = () => {
+    const json = JSON.stringify(sensorData, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sensor_data_${Date.now()}.json`;
+    link.click();
+  };
+
+  const exportAsImage = () => {
+    const chartCanvas = document.querySelector("canvas");
+    if (chartCanvas) {
+      const url = chartCanvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sensor_chart_${Date.now()}.png`;
+      link.click();
     }
   };
 
@@ -204,7 +234,7 @@ const HistoryData = () => {
       >
         <div style={{ margin: "0 10px" }}>
           <label>
-            Sensor: {" "}
+            Sensor:{" "}
             <select
               value={selectedSensor}
               onChange={(e) => setSelectedSensor(e.target.value)}
@@ -238,7 +268,7 @@ const HistoryData = () => {
         />
         <div style={{ margin: "0 10px" }}>
           <label>
-            Chart Type: {" "}
+            Chart Type:{" "}
             <select
               value={chartType}
               onChange={(e) => setChartType(e.target.value)}
@@ -299,36 +329,74 @@ const HistoryData = () => {
         <p>No data available.</p>
       )}
       <div style={{ display: "flex", marginTop: "20px" }}>
+        {totalPages > 0 ? (
+          <>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              style={{
+                margin: "0 10px",
+                padding: "10px 20px",
+                borderRadius: "5px",
+                border: "none",
+                backgroundColor: currentPage <= 1 ? "#ccc" : "#2196F3",
+                color: "white",
+                cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+              }}
+            >
+              Previous
+            </button>
+            <span style={{ margin: "0 10px" }}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              style={{
+                margin: "0 10px",
+                padding: "10px 20px",
+                borderRadius: "5px",
+                border: "none",
+                backgroundColor: currentPage >= totalPages ? "#ccc" : "#2196F3",
+                color: "white",
+                cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
+              }}
+            >
+              Next
+            </button>
+          </>
+        ) : (
+          <span style={{ margin: "0 10px", color: "#888" }}>No pages available</span>
+        )}
+      </div>
+      <div style={{ marginTop: "10px" }}>
         <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
+          onClick={exportAsJSON}
           style={{
             margin: "0 10px",
             padding: "10px 20px",
             borderRadius: "5px",
             border: "none",
-            backgroundColor: currentPage <= 1 ? "#ccc" : "#2196F3",
+            backgroundColor: "#2196F3",
             color: "white",
-            cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+            cursor: "pointer",
           }}
         >
-          Previous
+          Export as JSON
         </button>
-        <span style={{ margin: "0 10px" }}>Page {currentPage} of {totalPages}</span>
         <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
+          onClick={exportAsImage}
           style={{
             margin: "0 10px",
             padding: "10px 20px",
             borderRadius: "5px",
             border: "none",
-            backgroundColor: currentPage >= totalPages ? "#ccc" : "#2196F3",
+            backgroundColor: "#4CAF50",
             color: "white",
-            cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
+            cursor: "pointer",
           }}
         >
-          Next
+          Export as Image
         </button>
       </div>
     </div>
